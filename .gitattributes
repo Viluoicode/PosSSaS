@@ -1,0 +1,31 @@
+# Normalize line endings — keep the repo consistent across Windows/macOS/Linux.
+* text=auto eol=lf
+
+# C# / .NET source
+*.cs       text diff=csharp
+*.csproj   text
+*.sln      text eol=crlf
+*.props    text
+*.targets  text
+*.config   text
+*.json     text
+*.xml      text
+*.md       text
+*.html     text
+*.css      text
+*.js       text
+
+# Scripts
+*.sh       text eol=lf
+*.ps1      text eol=crlf
+*.cmd      text eol=crlf
+*.bat      text eol=crlf
+
+# Binary assets — never diff/merge
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.ico      binary
+*.pdf      binary
+*.snk      binary
