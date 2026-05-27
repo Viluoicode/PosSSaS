@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PosSSaS – Test Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .tab-active { background-color: #1e40af; color: white; }
+    .toast { animation: fadein 0.2s; }
+    @keyframes fadein { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800">
+
+  <!-- TOAST -->
+  <div id="toast" class="hidden fixed top-4 right-4 z-50 max-w-md"></div>
+
+  <!-- LOGIN -->
+  <div id="login-screen" class="hidden min-h-screen flex items-center justify-center p-6">
+    <div class="bg-white shadow-xl rounded-lg w-full max-w-md p-8">
+      <h1 class="text-2xl font-bold mb-1">PosSSaS Console</h1>
+      <p class="text-sm text-slate-500 mb-6">Đăng nhập để bắt đầu test</p>
+
+      <form id="login-form" class="space-y-4">
+        <div>
+          <label class="text-sm font-medium">Tenant</label>
+          <input name="tenantName" value="DemoMilkTeaShop" class="mt-1 w-full border rounded px-3 py-2" required />
+        </div>
+        <div>
+          <label class="text-sm font-medium">Branch</label>
+          <input name="branchName" value="Chi nhanh 1 - Quan 1" class="mt-1 w-full border rounded px-3 py-2" required />
+        </div>
+        <div>
+          <label class="text-sm font-medium">Username</label>
+          <input name="username" value="admin" class="mt-1 w-full border rounded px-3 py-2" required />
+        </div>
+        <div>
+          <label class="text-sm font-medium">Password</label>
+          <input name="password" type="password" value="admin123" class="mt-1 w-full border rounded px-3 py-2" required />
+        </div>
+        <button class="w-full bg-blue-700 hover:bg-blue-800 text-white py-2 rounded font-medium">Đăng nhập</button>
+      </form>
+
+      <div class="mt-6 pt-6 border-t text-xs text-slate-500 space-y-1">
+        <div><b>admin/admin123</b> – Admin, đăng nhập được mọi branch</div>
+        <div><b>cashier/cashier123</b> – Cashier, khóa ở "Chi nhanh 1 - Quan 1"</div>
+        <div>Hoặc register tenant mới qua nút bên dưới</div>
+        <button onclick="showRegister()" class="mt-2 text-blue-700 hover:underline">→ Register tenant mới</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- REGISTER -->
+  <div id="register-screen" class="hidden min-h-screen flex items-center justify-center p-6">
+    <div class="bg-white shadow-xl rounded-lg w-full max-w-md p-8">
+      <h1 class="text-2xl font-bold mb-6">Register tenant mới</h1>
+      <form id="register-form" class="space-y-4">
+        <div>
+          <label class="text-sm font-medium">Tên tenant (shop)</label>
+          <input name="tenantName" class="mt-1 w-full border rounded px-3 py-2" required />
+        </div>
+        <div>
+          <label class="text-sm font-medium">Tên chi nhánh đầu tiên</label>
+          <input name="firstBranchName" value="Chi nhanh chinh" class="mt-1 w-full border rounded px-3 py-2" required />
+        </div>
+        <div>
+          <label class="text-sm font-medium">Admin username</label>
+          <input name="adminUsername" value="admin" class="mt-1 w-full border rounded px-3 py-2" required />
+        </div>
+        <div>
+          <label class="text-sm font-medium">Admin password (>=6 ký tự)</label>
+          <input name="adminPassword" type="password" value="admin123" class="mt-1 w-full border rounded px-3 py-2" required />
+        </div>
+        <button class="w-full bg-emerald-700 hover:bg-emerald-800 text-white py-2 rounded font-medium">Register</button>
+        <button type="button" onclick="showLogin()" class="w-full text-blue-700 hover:underline">← Quay lại login</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- APP -->
+  <div id="app-screen" class="hidden">
+    <header class="bg-white border-b shadow-sm">
+      <div class="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+        <div>
+          <div class="font-bold text-lg">PosSSaS Console</div>
+          <div class="text-xs text-slate-500" id="auth-info"></div>
+        </div>
+        <button onclick="logout()" class="text-sm bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded">Logout</button>
+      </div>
+      <nav class="max-w-6xl mx-auto px-6 flex gap-1 overflow-x-auto">
+        <button data-tab="branches"    class="tab px-4 py-2 text-sm rounded-t hover:bg-slate-100">Branches</button>
+        <button data-tab="categories"  class="tab px-4 py-2 text-sm rounded-t hover:bg-slate-100">Categories</button>
+        <button data-tab="products"    class="tab px-4 py-2 text-sm rounded-t hover:bg-slate-100">Products</button>
+        <button data-tab="ingredients" class="tab px-4 py-2 text-sm rounded-t hover:bg-slate-100">Ingredients</button>
+        <button data-tab="stock"       class="tab px-4 py-2 text-sm rounded-t hover:bg-slate-100">Stock</button>
+        <button data-tab="recipes"     class="tab px-4 py-2 text-sm rounded-t hover:bg-slate-100">Recipes</button>
+        <button data-tab="orders"      class="tab px-4 py-2 text-sm rounded-t hover:bg-slate-100">Orders</button>
+      </nav>
+    </header>
+
+    <main id="content" class="max-w-6xl mx-auto p-6"></main>
+  </div>
+
+  <script>
+    // ===================== AUTH + API =====================
+    const API_BASE = window.location.origin + '/api';
+    const auth = {
+      get token() { return localStorage.getItem('possas.token'); },
+      get info()  { return JSON.parse(localStorage.getItem('possas.auth') || 'null'); },
+      set(data)   { localStorage.setItem('possas.token', data.token); localStorage.setItem('possas.auth', JSON.stringify(data)); },
+      clear()     { localStorage.removeItem('possas.token'); localStorage.removeItem('possas.auth'); }
+    };
+
+    async function api(method, path, body) {
+      const headers = { 'Accept': 'application/json' };
+      if (body) headers['Content-Type'] = 'application/json';
+      if (auth.token) headers.Authorization = `Bearer ${auth.token}`;
+      const res = await fetch(API_BASE + path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+      if (res.status === 401) { auth.clear(); showLogin(); throw new Error('Unauthorized'); }
+      if (res.status === 204) return null;
+      const ct = res.headers.get('content-type') || '';
+      const data = ct.includes('json') ? await res.json() : await res.text();
+      if (!res.ok) throw new Error((data && data.detail) || data || `HTTP ${res.status}`);
+      return data;
+    }
+
+    function toast(msg, isError = false) {
+      const el = document.getElementById('toast');
+      el.className = `toast fixed top-4 right-4 z-50 max-w-md px-4 py-3 rounded shadow-lg text-sm ${
+        isError ? 'bg-red-600 text-white' : 'bg-emerald-600 text-white'} cursor-pointer`;
+      el.textContent = typeof msg === 'string' ? msg : JSON.stringify(msg);
+      el.onclick = () => el.classList.add('hidden');
+      el.classList.remove('hidden');
+      // Errors stay visible longer so user can read; click to dismiss.
+      setTimeout(() => el.classList.add('hidden'), isError ? 8000 : 3000);
+    }
+
+    // ===================== SCREEN SWITCHING =====================
+    function showLogin()    { hideAll(); document.getElementById('login-screen').classList.remove('hidden'); }
+    function showRegister() { hideAll(); document.getElementById('register-screen').classList.remove('hidden'); }
+    function showApp()      { hideAll(); document.getElementById('app-screen').classList.remove('hidden'); renderAuthInfo(); switchTab('branches'); }
+    function hideAll()      { ['login-screen','register-screen','app-screen'].forEach(id => document.getElementById(id).classList.add('hidden')); }
+
+    function renderAuthInfo() {
+      const a = auth.info;
+      document.getElementById('auth-info').textContent =
+        `Tenant: ${a.tenantName} | Branch: ${a.branchName} | User: ${a.username} (${a.role})`;
+    }
+
+    function logout() { auth.clear(); showLogin(); }
+
+    // ===================== LOGIN/REGISTER FORMS =====================
+    document.getElementById('login-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const body = Object.fromEntries(new FormData(e.target));
+      try {
+        const data = await api('POST', '/Auth/login', body);
+        auth.set(data);
+        toast('Đăng nhập thành công');
+        showApp();
+      } catch (err) { toast(err.message, true); }
+    };
+
+    document.getElementById('register-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const body = Object.fromEntries(new FormData(e.target));
+      try {
+        const data = await api('POST', '/Tenants/register', body);
+        toast(`Tạo tenant ${data.tenantName} OK. Đang đăng nhập...`);
+        const login = await api('POST', '/Auth/login', {
+          tenantName: data.tenantName,
+          branchName: data.branchName,
+          username:   data.adminUsername,
+          password:   body.adminPassword
+        });
+        auth.set(login);
+        showApp();
+      } catch (err) { toast(err.message, true); }
+    };
+
+    // ===================== TABS =====================
+    document.querySelectorAll('.tab').forEach(btn => btn.onclick = () => switchTab(btn.dataset.tab));
+
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach(b => b.classList.toggle('tab-active', b.dataset.tab === name));
+      const r = renderers[name];
+      if (r) r();
+    }
+
+    const $ = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+    const content = () => document.getElementById('content');
+    const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n);
+
+    // ===================== RENDERERS =====================
+    const renderers = {};
+
+    // -------- Branches --------
+    renderers.branches = async () => {
+      content().innerHTML = `<h2 class="text-xl font-bold mb-4">Branches</h2>
+        <div class="bg-white rounded shadow p-4 mb-4">
+          <h3 class="font-medium mb-2">+ Tạo branch mới</h3>
+          <form id="f-create-br" class="grid grid-cols-4 gap-2">
+            <input name="name" placeholder="Tên chi nhánh" required class="border rounded px-2 py-1 col-span-1" />
+            <input name="address" placeholder="Địa chỉ" class="border rounded px-2 py-1 col-span-2" />
+            <input name="phoneNumber" placeholder="SĐT" class="border rounded px-2 py-1 col-span-1" />
+            <button class="col-span-4 bg-blue-700 text-white py-1 rounded text-sm">Tạo</button>
+          </form>
+        </div>
+        <div id="br-list" class="bg-white rounded shadow"></div>`;
+      document.getElementById('f-create-br').onsubmit = async (e) => {
+        e.preventDefault();
+        try { await api('POST', '/Branches', Object.fromEntries(new FormData(e.target))); toast('Tạo branch OK'); renderers.branches(); }
+        catch (err) { toast(err.message, true); }
+      };
+      const list = await api('GET', '/Branches');
+      document.getElementById('br-list').innerHTML = `
+        <table class="w-full text-sm"><thead class="bg-slate-100 text-left">
+          <tr><th class="p-2">Tên</th><th class="p-2">Địa chỉ</th><th class="p-2">SĐT</th><th class="p-2">Active</th></tr>
+        </thead><tbody>${
+          list.map(b => `<tr class="border-t"><td class="p-2 font-medium">${b.name}</td><td class="p-2">${b.address || ''}</td><td class="p-2">${b.phoneNumber || ''}</td><td class="p-2">${b.isActive ? '✓' : '✗'}</td></tr>`).join('')
+        }</tbody></table>`;
+    };
+
+    // -------- Categories --------
+    renderers.categories = async () => {
+      content().innerHTML = `<h2 class="text-xl font-bold mb-4">Categories</h2>
+        <div class="bg-white rounded shadow p-4 mb-4">
+          <h3 class="font-medium mb-2">+ Tạo category</h3>
+          <form id="f-cat" class="grid grid-cols-3 gap-2">
+            <input name="name" placeholder="Tên" required class="border rounded px-2 py-1" />
+            <input name="description" placeholder="Mô tả" class="border rounded px-2 py-1 col-span-2" />
+            <button class="col-span-3 bg-blue-700 text-white py-1 rounded text-sm">Tạo</button>
+          </form>
+        </div>
+        <div id="cat-list" class="bg-white rounded shadow"></div>`;
+      document.getElementById('f-cat').onsubmit = async (e) => {
+        e.preventDefault();
+        try { await api('POST', '/Categories', Object.fromEntries(new FormData(e.target))); toast('OK'); renderers.categories(); }
+        catch (err) { toast(err.message, true); }
+      };
+      const list = await api('GET', '/Categories');
+      document.getElementById('cat-list').innerHTML = `
+        <table class="w-full text-sm"><thead class="bg-slate-100 text-left">
+          <tr><th class="p-2">Tên</th><th class="p-2">Mô tả</th><th class="p-2">Active</th><th class="p-2 w-24">Action</th></tr>
+        </thead><tbody>${
+          list.map(c => `<tr class="border-t"><td class="p-2 font-medium">${c.name}</td><td class="p-2">${c.description || ''}</td><td class="p-2">${c.isActive ? '✓' : '✗'}</td>
+            <td class="p-2"><button onclick="deleteCategory('${c.id}','${c.name}')" class="text-red-600 hover:underline text-xs">Xóa</button></td></tr>`).join('')
+        }</tbody></table>`;
+    };
+    window.deleteCategory = async (id, name) => {
+      if (!confirm(`Xóa category "${name}"?`)) return;
+      try { await api('DELETE', `/Categories/${id}`); toast('Đã xóa'); renderers.categories(); }
+      catch (err) { toast(err.message, true); }
+    };
+
+    // -------- Products --------
+    renderers.products = async () => {
+      const cats = await api('GET', '/Categories');
+      content().innerHTML = `<h2 class="text-xl font-bold mb-4">Products</h2>
+        <div class="bg-white rounded shadow p-4 mb-4">
+          <h3 class="font-medium mb-2">+ Tạo product</h3>
+          <form id="f-pr" class="grid grid-cols-4 gap-2">
+            <input name="name" placeholder="Tên" required class="border rounded px-2 py-1 col-span-2" />
+            <input name="price" type="number" min="0" placeholder="Giá" required class="border rounded px-2 py-1" />
+            <select name="categoryId" required class="border rounded px-2 py-1">
+              ${cats.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
+            </select>
+            <button class="col-span-4 bg-blue-700 text-white py-1 rounded text-sm">Tạo</button>
+          </form>
+        </div>
+        <div id="pr-list" class="bg-white rounded shadow"></div>`;
+      document.getElementById('f-pr').onsubmit = async (e) => {
+        e.preventDefault();
+        const body = Object.fromEntries(new FormData(e.target));
+        body.price = Number(body.price);
+        try { await api('POST', '/Products', body); toast('OK'); renderers.products(); }
+        catch (err) { toast(err.message, true); }
+      };
+      const list = await api('GET', '/Products');
+      document.getElementById('pr-list').innerHTML = `
+        <table class="w-full text-sm"><thead class="bg-slate-100 text-left">
+          <tr><th class="p-2">Tên</th><th class="p-2">Danh mục</th><th class="p-2 text-right">Giá</th><th class="p-2">Active</th><th class="p-2 w-24">Action</th></tr>
+        </thead><tbody>${
+          list.map(p => `<tr class="border-t"><td class="p-2 font-medium">${p.name}</td><td class="p-2">${p.categoryName}</td><td class="p-2 text-right">${fmt(p.price)}</td><td class="p-2">${p.isActive ? '✓' : '✗'}</td>
+            <td class="p-2"><button onclick="deleteProduct('${p.id}','${p.name}')" class="text-red-600 hover:underline text-xs">Xóa</button></td></tr>`).join('')
+        }</tbody></table>`;
+    };
+    window.deleteProduct = async (id, name) => {
+      if (!confirm(`Xóa product "${name}"?`)) return;
+      try { await api('DELETE', `/Products/${id}`); toast('Đã xóa'); renderers.products(); }
+      catch (err) { toast(err.message, true); }
+    };
+
+    // -------- Ingredients --------
+    renderers.ingredients = async () => {
+      content().innerHTML = `<h2 class="text-xl font-bold mb-4">Ingredients (metadata, không có stock)</h2>
+        <div class="bg-white rounded shadow p-4 mb-4">
+          <h3 class="font-medium mb-2">+ Tạo ingredient</h3>
+          <form id="f-ing" class="grid grid-cols-3 gap-2">
+            <input name="name" placeholder="Tên" required class="border rounded px-2 py-1 col-span-2" />
+            <input name="unit" placeholder="Đơn vị (gram/ml/pcs)" required class="border rounded px-2 py-1" />
+            <button class="col-span-3 bg-blue-700 text-white py-1 rounded text-sm">Tạo</button>
+          </form>
+        </div>
+        <div id="ing-list" class="bg-white rounded shadow"></div>`;
+      document.getElementById('f-ing').onsubmit = async (e) => {
+        e.preventDefault();
+        try { await api('POST', '/Ingredients', Object.fromEntries(new FormData(e.target))); toast('OK'); renderers.ingredients(); }
+        catch (err) { toast(err.message, true); }
+      };
+      const list = await api('GET', '/Ingredients');
+      document.getElementById('ing-list').innerHTML = `
+        <table class="w-full text-sm"><thead class="bg-slate-100 text-left">
+          <tr><th class="p-2">Tên</th><th class="p-2">Đơn vị</th><th class="p-2 w-24">Action</th></tr>
+        </thead><tbody>${
+          list.map(i => `<tr class="border-t"><td class="p-2 font-medium">${i.name}</td><td class="p-2">${i.unit}</td>
+            <td class="p-2"><button onclick="deleteIngredient('${i.id}','${i.name}')" class="text-red-600 hover:underline text-xs">Xóa</button></td></tr>`).join('')
+        }</tbody></table>`;
+    };
+    window.deleteIngredient = async (id, name) => {
+      if (!confirm(`Xóa ingredient "${name}"?`)) return;
+      try { await api('DELETE', `/Ingredients/${id}`); toast('Đã xóa'); renderers.ingredients(); }
+      catch (err) { toast(err.message, true); }
+    };
+
+    // -------- Stock (current branch) --------
+    renderers.stock = async () => {
+      content().innerHTML = `<h2 class="text-xl font-bold mb-1">Stock @ Branch hiện tại</h2>
+        <p class="text-sm text-slate-500 mb-4">Branch: <b>${auth.info.branchName}</b> – chỉ thấy tồn của branch này.</p>
+        <div id="stock-list" class="bg-white rounded shadow"></div>`;
+      const list = await api('GET', '/Stock');
+      document.getElementById('stock-list').innerHTML = `
+        <table class="w-full text-sm"><thead class="bg-slate-100 text-left">
+          <tr><th class="p-2">Nguyên liệu</th><th class="p-2">Đơn vị</th><th class="p-2 text-right">Tồn</th><th class="p-2">Điều chỉnh (Admin)</th></tr>
+        </thead><tbody>${
+          list.map(s => `<tr class="border-t">
+            <td class="p-2 font-medium">${s.ingredientName}</td>
+            <td class="p-2">${s.unit}</td>
+            <td class="p-2 text-right font-mono">${fmt(s.quantity)}</td>
+            <td class="p-2">
+              <form onsubmit="adjustStock(event,'${s.ingredientId}')" class="flex gap-1">
+                <input name="delta" type="number" step="0.001" placeholder="±delta" class="border rounded px-2 py-1 w-24 text-sm" required />
+                <input name="reason" placeholder="Lý do" class="border rounded px-2 py-1 text-sm flex-1" />
+                <button class="bg-blue-700 text-white px-3 rounded text-sm">Apply</button>
+              </form>
+            </td></tr>`).join('')
+        }</tbody></table>`;
+    };
+    window.adjustStock = async (e, ingredientId) => {
+      e.preventDefault();
+      const body = Object.fromEntries(new FormData(e.target));
+      body.delta = Number(body.delta);
+      try { await api('POST', `/Stock/${ingredientId}/adjust`, body); toast('Đã điều chỉnh'); renderers.stock(); }
+      catch (err) { toast(err.message, true); }
+    };
+
+    // -------- Recipes --------
+    renderers.recipes = async () => {
+      const products = await api('GET', '/Products');
+      content().innerHTML = `<h2 class="text-xl font-bold mb-4">Recipes (BOM)</h2>
+        <div class="bg-white rounded shadow p-4">
+          <label class="text-sm font-medium">Chọn product:</label>
+          <select id="re-product" class="border rounded px-2 py-1 ml-2">
+            <option value="">— chọn —</option>
+            ${products.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
+          </select>
+          <div id="re-detail" class="mt-4"></div>
+        </div>`;
+      document.getElementById('re-product').onchange = (e) => loadRecipe(e.target.value);
+    };
+
+    async function loadRecipe(productId) {
+      const box = document.getElementById('re-detail');
+      if (!productId) { box.innerHTML = ''; return; }
+      const [recipe, ingredients] = await Promise.all([
+        api('GET', `/Recipes/product/${productId}`),
+        api('GET', '/Ingredients')
+      ]);
+      box.innerHTML = `
+        <h3 class="font-medium mb-2">Công thức của: ${recipe.productName}</h3>
+        <table class="w-full text-sm mb-3"><thead class="bg-slate-100"><tr>
+          <th class="p-2 text-left">Nguyên liệu</th><th class="p-2 text-left">Đơn vị</th>
+          <th class="p-2 text-right">Số lượng/1 sp</th><th class="p-2 w-16"></th></tr></thead>
+          <tbody id="re-rows">${
+            recipe.lines.map(l => recipeRow(ingredients, l.ingredientId, l.quantityRequired)).join('')
+          }${recipe.lines.length === 0 ? recipeRow(ingredients, '', '') : ''}</tbody></table>
+        <div class="flex gap-2">
+          <button onclick="addRecipeRow()" class="bg-slate-200 hover:bg-slate-300 px-3 py-1 rounded text-sm">+ Thêm dòng</button>
+          <button onclick="saveRecipe('${productId}')" class="bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-1 rounded text-sm">Lưu (replace toàn bộ BOM)</button>
+        </div>
+        <p class="text-xs text-slate-500 mt-2">Lưu sẽ thay thế toàn bộ công thức cũ bằng danh sách trên. Bỏ trống ingredient để xóa dòng.</p>
+      `;
+      window._reIngredients = ingredients;
+    }
+
+    function recipeRow(ingredients, selectedId, qty) {
+      return `<tr class="border-t">
+        <td class="p-2"><select class="re-ing border rounded px-2 py-1 w-full">
+          <option value="">— bỏ —</option>
+          ${ingredients.map(i => `<option value="${i.id}" ${i.id === selectedId ? 'selected' : ''}>${i.name}</option>`).join('')}
+        </select></td>
+        <td class="p-2 text-slate-500">${ingredients.find(i => i.id === selectedId)?.unit || ''}</td>
+        <td class="p-2 text-right"><input type="number" step="0.001" min="0" value="${qty}" class="re-qty border rounded px-2 py-1 w-24 text-right" /></td>
+        <td class="p-2"><button onclick="this.closest('tr').remove()" class="text-red-600 text-xs">×</button></td>
+      </tr>`;
+    }
+
+    window.addRecipeRow = () => {
+      const tr = $(recipeRow(window._reIngredients, '', ''));
+      document.getElementById('re-rows').appendChild(tr);
+    };
+
+    window.saveRecipe = async (productId) => {
+      const lines = [...document.querySelectorAll('#re-rows tr')].map(tr => ({
+        ingredientId: tr.querySelector('.re-ing').value,
+        quantityRequired: Number(tr.querySelector('.re-qty').value)
+      })).filter(l => l.ingredientId && l.quantityRequired > 0);
+      try { await api('PUT', `/Recipes/product/${productId}`, { lines }); toast('Đã lưu BOM'); loadRecipe(productId); }
+      catch (err) { toast(err.message, true); }
+    };
+
+    // -------- Orders --------
+    renderers.orders = async () => {
+      const products = await api('GET', '/Products?activeOnly=true');
+      content().innerHTML = `<h2 class="text-xl font-bold mb-4">Orders @ ${auth.info.branchName}</h2>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-white rounded shadow p-4">
+            <h3 class="font-medium mb-2">+ Tạo đơn mới</h3>
+            <table class="w-full text-sm mb-2">
+              <thead class="bg-slate-100 text-left"><tr>
+                <th class="p-2">Sản phẩm</th><th class="p-2 text-right">Giá</th><th class="p-2 w-20">SL</th>
+              </tr></thead>
+              <tbody>${products.map(p => `<tr class="border-t">
+                <td class="p-2">${p.name}</td>
+                <td class="p-2 text-right">${fmt(p.price)}</td>
+                <td class="p-2"><input type="number" min="0" value="0" data-id="${p.id}" data-price="${p.price}" class="qty border rounded px-2 py-1 w-16 text-right" oninput="recalcTotal()" /></td>
+              </tr>`).join('')}</tbody>
+            </table>
+            <div class="text-right text-lg font-bold mb-2">Tổng: <span id="order-total">0</span> đ</div>
+            <button id="btn-submit-order" onclick="submitOrder()" class="w-full bg-emerald-700 hover:bg-emerald-800 disabled:bg-slate-400 text-white py-2 rounded">Tạo đơn</button>
+            <p class="text-xs text-slate-500 mt-2">Tip: sau mỗi đơn, stock các nguyên liệu liên quan sẽ giảm. Khi không đủ → 409.</p>
+          </div>
+          <div class="bg-white rounded shadow p-4">
+            <h3 class="font-medium mb-2">Đơn gần đây</h3>
+            <div id="orders-list" class="text-sm"></div>
+          </div>
+        </div>`;
+      reloadOrders();
+    };
+
+    window.recalcTotal = () => {
+      let total = 0;
+      document.querySelectorAll('.qty').forEach(i => total += Number(i.value) * Number(i.dataset.price));
+      document.getElementById('order-total').textContent = fmt(total);
+    };
+
+    window.submitOrder = async () => {
+      const btn = document.getElementById('btn-submit-order');
+      if (btn.disabled) return; // guard against double-click during the in-flight request
+
+      const items = [...document.querySelectorAll('.qty')]
+        .filter(i => Number(i.value) > 0)
+        .map(i => ({ productId: i.dataset.id, quantity: Number(i.value) }));
+      if (items.length === 0) { toast('Chưa chọn sản phẩm nào', true); return; }
+
+      btn.disabled = true; btn.textContent = 'Đang xử lý...';
+      try {
+        const r = await api('POST', '/Orders', { items });
+        toast(`✓ Order ${r.orderId.substring(0,8)}... – Tổng ${fmt(r.totalAmount)}đ`);
+        document.querySelectorAll('.qty').forEach(i => i.value = 0);
+        recalcTotal();
+        reloadOrders();
+      } catch (err) {
+        toast('✗ ' + err.message, true);
+      } finally {
+        btn.disabled = false; btn.textContent = 'Tạo đơn';
+      }
+    };
+
+    async function reloadOrders() {
+      const list = await api('GET', '/Orders');
+      document.getElementById('orders-list').innerHTML = list.length === 0
+        ? '<div class="text-slate-400">Chưa có đơn nào.</div>'
+        : `<table class="w-full"><thead class="bg-slate-100 text-left"><tr>
+            <th class="p-2">Thời gian</th><th class="p-2 text-right">Tổng</th><th class="p-2 text-center">Items</th><th class="p-2">Status</th>
+          </tr></thead><tbody>${list.map(o => `<tr class="border-t cursor-pointer hover:bg-slate-50" onclick="viewOrder('${o.id}')">
+            <td class="p-2">${new Date(o.orderDate).toLocaleString('vi-VN')}</td>
+            <td class="p-2 text-right font-mono">${fmt(o.totalAmount)}</td>
+            <td class="p-2 text-center">${o.itemCount}</td>
+            <td class="p-2">${o.status}</td>
+          </tr>`).join('')}</tbody></table>`;
+    }
+
+    window.viewOrder = async (id) => {
+      const o = await api('GET', `/Orders/${id}`);
+      alert(`Order ${id.substring(0,8)}...
+Date: ${new Date(o.orderDate).toLocaleString('vi-VN')}
+Status: ${o.status}
+Total: ${fmt(o.totalAmount)}đ
+
+Items:
+${o.items.map(i => `  • ${i.productName}  x${i.quantity}  = ${fmt(i.lineTotal)}đ`).join('\n')}`);
+    };
+
+    // ===================== BOOTSTRAP =====================
+    if (auth.token) showApp(); else showLogin();
+  </script>
+</body>
+</html>
