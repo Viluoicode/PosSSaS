@@ -149,6 +149,21 @@ Then open **`https://localhost:<port>/`** — the static test console — or
 > The database schema and demo data are created on first launch; no manual
 > `dotnet ef database update` is required.
 
+### Run with Docker (API + SQL Server)
+
+No local .NET or SQL Server needed — just Docker.
+
+```bash
+cp .env.example .env          # set MSSQL_SA_PASSWORD and JWT_KEY
+docker compose up --build
+```
+
+- API + Swagger → **http://localhost:8080/swagger**
+- Health probe → **http://localhost:8080/health**
+
+The API waits for SQL Server to become healthy, then applies migrations and
+seeds demo data automatically (with startup retries).
+
 ---
 
 ## 🔑 Demo Accounts
@@ -220,8 +235,10 @@ PosSSaS/
 
 - [x] Backend API (Clean Architecture, multi-tenant, CQRS)
 - [x] Live Swagger / OpenAPI documentation
+- [x] Observability & hardening (Serilog, CORS, health checks, rate limiting)
+- [x] Docker Compose (API + SQL Server)
 - [ ] Reporting endpoints (revenue summary, top products, low-stock alerts)
-- [ ] CI/CD + Docker Compose
+- [ ] CI pipeline (GitHub Actions: build + test)
 - [ ] Cloud deployment (live demo URL)
 - [ ] WinForms POS client (HTTP-based)
 - [ ] React admin dashboard

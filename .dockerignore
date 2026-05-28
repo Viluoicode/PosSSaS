@@ -1,0 +1,23 @@
+# Build artifacts
+**/bin/
+**/obj/
+**/publish/
+
+# IDE / VCS
+.git/
+.gitignore
+.gitattributes
+.vs/
+.vscode/
+.idea/
+**/*.user
+
+# Local logs & secrets
+**/logs/
+**/appsettings.*.local.json
+**/.env
+**/.env.*
+
+# Docs / misc (not needed in image)
+*.md
+LICENSE
