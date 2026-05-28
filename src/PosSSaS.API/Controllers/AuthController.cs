@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using PosSSaS.Application.Features.Auth.Commands.Login;
 
 namespace PosSSaS.API.Controllers;
@@ -15,6 +16,7 @@ public class AuthController : ControllerBase
     public AuthController(IMediator mediator) => _mediator = mediator;
 
     [HttpPost("login")]
+    [EnableRateLimiting("login")]
     [ProducesResponseType(typeof(LoginResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<LoginResult>> LoginAsync([FromBody] LoginCommand cmd, CancellationToken ct)
